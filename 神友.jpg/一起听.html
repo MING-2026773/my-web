@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>一起听 - 笗白</title>
+    <style>
+        /* 基础重置 */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html {
+            width: 100%; height: 100%; overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            color: #fff; background-color: #1a1a2e; user-select: none;
+        }
+
+        /* ================= 短暂闪黑进场 ================= */
+        .intro-black-screen {
+            position: fixed; inset: 0; background: #000; z-index: 999999;
+            pointer-events: none; animation: introFadeOut 0.8s ease forwards;
+        }
+        @keyframes introFadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+        /* ================= 原有样式 ================= */
+        .app-container {
+            width: 100%; height: 100%; position: relative; display: flex; flex-direction: column;
+            background-image: url('背景底.jpg'); background-size: cover; background-position: center;
+        }
+        .app-container::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(to bottom, rgba(20, 20, 20, 0.6) 0%, rgba(10, 10, 10, 0.95) 100%); z-index: 0;
+        }
+
+        /* ================= 飘雪特效层 ================= */
+        .snow-container {
+            position: fixed; inset: 0; z-index: 999; overflow: hidden; pointer-events: none;
+            transition: opacity 1.5s ease, filter 1.5s ease;
+            opacity: 0; filter: blur(10px); animation: snowFadeIn 2s ease forwards;
+        }
+        @keyframes snowFadeIn { to { opacity: 1; filter: blur(0); } }
+        .snow-container.fade-out { opacity: 0 !important; filter: blur(15px) !important; animation: none !important; }
+
+        .snowflake-complex {
+            position: absolute; top: -10vh;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g stroke="white" stroke-width="2" stroke-linecap="round" fill="none"><line x1="50" y1="5" x2="50" y2="95"/><line x1="11" y1="27.5" x2="89" y2="72.5"/><line x1="89" y1="27.5" x2="11" y2="72.5"/><line x1="50" y1="25" x2="35" y2="10"/><line x1="50" y1="25" x2="65" y2="10"/><line x1="50" y1="75" x2="35" y2="90"/><line x1="50" y1="75" x2="65" y2="90"/><line x1="27.5" y1="40" x2="15" y2="35"/><line x1="72.5" y1="60" x2="85" y2="65"/><line x1="72.5" y1="40" x2="85" y2="35"/><line x1="27.5" y1="60" x2="15" y2="65"/></g></svg>');
+            background-size: contain; background-repeat: no-repeat;
+            will-change: transform, opacity; animation: fall linear infinite;
+        }
+        .snowflake-dot {
+            position: absolute; top: -10vh; background-color: #fff; border-radius: 50%;
+            will-change: transform, opacity; animation: fallDot linear infinite;
+        }
+        @keyframes fall {
+            0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 0; }
+            10% { opacity: var(--target-opacity); }
+            90% { opacity: var(--target-opacity); }
+            100% { transform: translate3d(20vw, 110vh, 0) rotate(360deg); opacity: 0; }
+        }
+        @keyframes fallDot {
+            0% { transform: translate3d(0, -10vh, 0); opacity: 0; }
+            10% { opacity: var(--target-opacity); }
+            90% { opacity: var(--target-opacity); }
+            100% { transform: translate3d(10vw, 110vh, 0); opacity: 0; }
+        }
+
+        /* ================= 顶部导航栏 ================= */
+        .nav-bar {
+            height: 60px; display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 20px 0; z-index: 10; position: relative; flex-shrink: 0; margin-top: 20px;
+        }
+        .back-btn {
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: flex-start;
+            cursor: pointer; opacity: 0.8; transition: 0.3s;
+        }
+        .back-btn:hover { opacity: 1; }
+        .back-btn svg { width: 24px; height: 24px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+        .nav-center { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .nav-title { font-size: 18px; font-weight: 600; margin-bottom: 4px; letter-spacing: 1px; }
+        .nav-artist { font-size: 13px; color: rgba(255,255,255,0.6); display: flex; align-items: center; gap: 8px; }
+        
+        .follow-btn {
+            border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; padding: 2px 8px;
+            font-size: 10px; color: rgba(255,255,255,0.8); cursor: pointer; transition: 0.3s;
+        }
+        .follow-btn.followed { border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.05); }
+
+        .more-btn {
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: flex-end;
+            cursor: pointer; opacity: 0.8; transition: 0.3s;
+        }
+        .more-btn:hover { opacity: 1; }
+        .more-btn svg { width: 24px; height: 24px; fill: #fff; }
+
+        /* ================= 主体内容区 ================= */
+        .main-content {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 10; position: relative; padding-bottom: 8vh;
+        }
+
+        .avatar-wrapper { position: relative; display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 25px; z-index: 20; }
+        .connect-line {
+            position: absolute; width: 160px; height: 120px;
+            border-left: 1.5px solid rgba(255,255,255,0.4); border-right: 1.5px solid rgba(255,255,255,0.4); border-bottom: 1.5px solid rgba(255,255,255,0.4);
+            border-radius: 0 0 100px 100px; bottom: -25px; z-index: -1;
+            box-shadow: 0 5px 15px rgba(255,255,255,0.1), inset 0 -5px 15px rgba(255,255,255,0.05);
+            mask-image: linear-gradient(to top, black 50%, transparent 100%); -webkit-mask-image: linear-gradient(to top, black 50%, transparent 100%);
+        }
+
+        .avatar-container { position: relative; display: flex; flex-direction: column; align-items: center; }
+        .avatar {
+            width: 85px; height: 85px; border-radius: 50%; object-fit: cover;
+            border: 1px solid rgba(255,255,255,0.2); z-index: 2; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            cursor: pointer; transition: transform 0.2s;
+        }
+        .avatar:active { transform: scale(0.95); }
+
+        /* ================= 头像下方的常驻循环消息气泡 ================= */
+        .message-box {
+            position: absolute; top: 100%; left: 50%;
+            transform: translateX(-50%) translateY(15px) scale(0.8);
+            background-color: #fff; color: #333; padding: 10px 14px; border-radius: 12px;
+            font-size: 13px; font-weight: 500; line-height: 1.4; width: max-content; max-width: 160px;
+            text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); opacity: 0; visibility: hidden;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: none; z-index: 100;
+        }
+        .message-box::before {
+            content: ''; position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+            border-width: 0 6px 6px 6px; border-style: solid; border-color: transparent transparent #fff transparent;
+        }
+        .message-box.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(5px) scale(1); }
+
+        .listen-time { font-size: 14px; color: rgba(255,255,255,0.6); letter-spacing: 1px; margin-top: 30px; margin-bottom: 50px; z-index: 10; }
+
+        /* ================= 居中黑胶 ================= */
+        .vinyl-container-outer { position: relative; display: flex; justify-content: center; align-items: center; }
+        .vinyl-hint {
+            position: absolute; top: -40px; font-size: 13px; color: #fff; letter-spacing: 4px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.5); white-space: nowrap; z-index: 10;
+        }
+        .vinyl-bottom-text {
+            position: absolute; bottom: -45px; font-size: 13px; color: #fff; letter-spacing: 3px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.5); white-space: nowrap; z-index: 10;
+        }
+        .vinyl-wrapper-center { position: relative; width: 280px; height: 280px; display: flex; justify-content: center; align-items: center; }
+        .center-vinyl {
+            width: 100%; height: 100%; border-radius: 50%;
+            background-image: url('黑胶.jpg'); background-size: cover; background-position: center;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.9), 0 10px 30px rgba(0,0,0,0.8);
+            display: flex; justify-content: center; align-items: center;
+            animation: spin 30s linear infinite; will-change: transform; border: 2px solid #111;
+        }
+        .center-vinyl .vinyl-cover {
+            width: 65%; height: 65%; border-radius: 50%;
+            background-image: url('封面占位.jpg'); background-size: cover; background-position: center;
+            border: 1px solid rgba(255,255,255,0.1); box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 飘雪开关按钮 */
+        .snow-toggle-btn {
+            position: absolute; bottom: 30px; right: 30px; z-index: 100;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 12px;
+            cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 6px;
+            backdrop-filter: blur(5px);
+        }
+        .snow-toggle-btn:hover { background: rgba(255,255,255,0.2); }
+        .snow-toggle-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+
+        /* ================= iMessage 玻璃弹窗 ================= */
+        .chat-modal {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 10000;
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .chat-modal.show { opacity: 1; visibility: visible; }
+
+        .chat-card {
+            width: 90%; max-width: 380px; height: 70vh; max-height: 600px;
+            background: rgba(25, 25, 35, 0.6); 
+            backdrop-filter: blur(25px) saturate(150%);
+            -webkit-backdrop-filter: blur(25px) saturate(150%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            display: flex; flex-direction: column;
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05);
+            transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            overflow: hidden;
+        }
+        .chat-modal.show .chat-card { transform: scale(1); }
+
+        .chat-header {
+            height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; position: relative;
+            background: rgba(255,255,255,0.02);
+        }
+        .chat-back {
+            position: absolute; left: 15px; top: 15px;
+            color: #fff; font-size: 20px; cursor: pointer; opacity: 0.8;
+        }
+        .chat-avatar {
+            width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+            border: 1px solid rgba(255,255,255,0.2); margin-bottom: 5px;
+        }
+        .chat-name { font-size: 14px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 4px;}
+        .chat-name span { font-size: 10px; color: #888; }
+
+        .chat-body {
+            flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column;
+            scroll-behavior: smooth;
+        }
+        .chat-body::-webkit-scrollbar { width: 0; }
+
+        .chat-time { text-align: center; font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 20px; line-height: 1.5; }
+        .chat-time span { display: block; font-size: 11px; color: rgba(255,255,255,0.3); }
+
+        .msg-wrapper {
+            display: flex; flex-direction: column; margin-bottom: 12px; max-width: 90%;
+            animation: msgSlideIn 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            opacity: 0; transform: translateY(10px);
+        }
+        @keyframes msgSlideIn { to { opacity: 1; transform: translateY(0); } }
+
+        .msg-left { align-self: flex-start; }
+        .msg-right { align-self: flex-end; align-items: flex-end; }
+
+        .bubble {
+            padding: 10px 14px; font-size: 14px; line-height: 1.5; color: #fff;
+            white-space: nowrap; word-break: keep-all;
+        }
+        
+        .msg-left .bubble {
+            background: rgba(60, 65, 80, 0.8); border-radius: 18px 18px 18px 4px;
+            backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05);
+        }
+        .msg-right .bubble {
+            background: rgba(180, 180, 185, 0.9); border-radius: 18px 18px 4px 18px;
+            color: #111; font-weight: 500;
+        }
+
+        .options-container {
+            display: flex; justify-content: center; gap: 15px; padding: 15px 20px;
+            border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;
+            background: rgba(0,0,0,0.2); animation: fadeIn 0.4s ease forwards;
+        }
+        .option-btn {
+            flex: 1; padding: 10px 0; border-radius: 20px; font-size: 14px; font-weight: bold;
+            text-align: center; cursor: pointer; transition: all 0.2s;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .option-left { background: rgba(255,255,255,0.1); color: #ddd; }
+        .option-left:hover { background: rgba(255,255,255,0.2); }
+        .option-right { background: #fff; color: #333; border: none; }
+        .option-right:hover { background: #eee; }
+
+        @media (max-width: 768px) {
+            .avatar { width: 70px; height: 70px; }
+            .connect-line { width: 120px; height: 90px; bottom: -20px; }
+            .vinyl-wrapper-center { width: 220px; height: 220px; }
+            .main-content { padding-bottom: 5vh; }
+            .vinyl-hint { top: -35px; font-size: 12px; letter-spacing: 3px; }
+            .vinyl-bottom-text { bottom: -35px; font-size: 12px; letter-spacing: 2px; }
+            .snow-toggle-btn { bottom: 20px; right: 20px; padding: 6px 12px; font-size: 11px; }
+            
+            .chat-card { height: 75vh; }
+            .bubble { font-size: 13px; padding: 8px 12px; }
+            .message-box { max-width: 130px; font-size: 12px; padding: 8px 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 快速黑色开场淡出 -->
+    <div class="intro-black-screen"></div>
+
+    <!-- 雪花层 -->
+    <div class="snow-container" id="snow-container"></div>
+
+    <div class="app-container">
+        <!-- 导航栏 -->
+        <div class="nav-bar">
+            <div class="back-btn" onclick="window.location.href='播放器.html'">
+                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </div>
+            <div class="nav-center">
+                <div class="nav-title">我想</div>
+                <div class="nav-artist">
+                    笗白 
+                    <span class="follow-btn" id="follow-btn" onclick="toggleFollow()">关注</span>
+                </div>
+            </div>
+            <div class="more-btn">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>
+            </div>
+        </div>
+
+        <!-- 居中内容区 -->
+        <div class="main-content">
+            <!-- 头像与连线 -->
+            <div class="avatar-wrapper">
+                <div class="connect-line"></div>
+                
+                <div class="avatar-container" onclick="openChat()">
+                    <img src="头像1.jpg" alt="Avatar 1" class="avatar">
+                    <div class="message-box" id="msg-left"></div>
+                </div>
+                
+                <div class="avatar-container" onclick="openChat()">
+                    <img src="头像2.jpg" alt="Avatar 2" class="avatar">
+                    <div class="message-box" id="msg-right"></div>
+                </div>
+            </div>
+            
+            <div class="listen-time">一起听了 520时13.14分钟</div>
+            
+            <div class="vinyl-container-outer">
+                <div class="vinyl-hint">轻触头像 看看我</div>
+                
+                <div class="vinyl-wrapper-center">
+                    <div class="center-vinyl">
+                        <div class="vinyl-cover"></div>
+                    </div>
+                </div>
+
+                <div class="vinyl-bottom-text">就在这里吧，我们一起</div>
+            </div>
+        </div>
+
+        <!-- 飘雪开关 -->
+        <button class="snow-toggle-btn" id="snow-toggle" onclick="toggleSnow()">
+            <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/></svg>
+            关闭飘雪
+        </button>
+    </div>
+
+    <!-- ================= iMessage 玻璃弹窗 ================= -->
+    <div class="chat-modal" id="chat-modal">
+        <div class="chat-card">
+            <!-- 弹窗顶部 -->
+            <div class="chat-header">
+                <div class="chat-back" onclick="closeChat()">＜</div>
+                <img src="头像1.jpg" alt="chat-avatar" class="chat-avatar">
+                <div class="chat-name">笗白 <span>›</span></div>
+            </div>
+
+            <!-- 滚动聊天区 -->
+            <div class="chat-body" id="chat-body">
+                <div class="chat-time">
+                    iMessage
+                    <span>昨天 01:34</span>
+                </div>
+                <!-- 气泡动态生成于此 -->
+            </div>
+
+            <!-- 选项按钮区 (初始隐藏) -->
+            <div class="options-container" id="options-container" style="display: none;">
+                <div class="option-btn option-left" onclick="handleChoice('sad')">我难过</div>
+                <div class="option-btn option-right" onclick="handleChoice('happy')">开心呀</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 替换后的背景音乐 -->
+    <audio id="bgm" src="my head is empty - i was only temporary 2 u.flac" loop autoplay></audio>
+
+    <script>
+        // ================= 1. 飘雪与关注逻辑 =================
+        let isSnowing = true;
+        function createSnow() {
+            const container = document.getElementById('snow-container');
+            const isMobile = window.innerWidth <= 768;
+            const complexCount = isMobile ? 6 : 10;
+            const dotCount = isMobile ? 60 : 120;
+
+            for (let i = 0; i < complexCount; i++) {
+                const snow = document.createElement('div');
+                snow.classList.add('snowflake-complex');
+                const size = Math.random() * 15 + 10;
+                snow.style.width = `${size}px`;
+                snow.style.height = `${size}px`;
+                snow.style.left = `${Math.random() * 100}vw`;
+                const duration = Math.random() * 15 + 15;
+                snow.style.animationDuration = `${duration}s`;
+                snow.style.animationDelay = `-${Math.random() * 30}s`;
+                snow.style.setProperty('--target-opacity', Math.random() * 0.4 + 0.3);
+                container.appendChild(snow);
+            }
+
+            for (let i = 0; i < dotCount; i++) {
+                const dot = document.createElement('div');
+                dot.classList.add('snowflake-dot');
+                const size = Math.random() * 3.5 + 1.5;
+                dot.style.width = `${size}px`;
+                dot.style.height = `${size}px`;
+                dot.style.left = `${Math.random() * 100}vw`;
+                const duration = Math.random() * 10 + 8;
+                dot.style.animationDuration = `${duration}s`;
+                dot.style.animationDelay = `-${Math.random() * 20}s`;
+                dot.style.setProperty('--target-opacity', Math.random() * 0.6 + 0.2);
+                if (Math.random() > 0.5) {
+                    dot.style.filter = `blur(${Math.random() * 1.5 + 0.5}px)`;
+                }
+                container.appendChild(dot);
+            }
+        }
+        createSnow();
+
+        function toggleSnow() {
+            const container = document.getElementById('snow-container');
+            const btn = document.getElementById('snow-toggle');
+            if (isSnowing) {
+                container.classList.add('fade-out');
+                btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/></svg> 开启飘雪';
+                isSnowing = false;
+            } else {
+                container.classList.remove('fade-out');
+                btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/></svg> 关闭飘雪';
+                isSnowing = true;
+            }
+        }
+
+        let isFollowed = false;
+        function toggleFollow() {
+            const btn = document.getElementById('follow-btn');
+            isFollowed = !isFollowed;
+            if (isFollowed) {
+                btn.innerText = '已关注';
+                btn.classList.add('followed');
+            } else {
+                btn.innerText = '关注';
+                btn.classList.remove('followed');
+            }
+        }
+
+        // ================= 2. 头像下方的常驻循环气泡 =================
+        const msgData = {
+            left: ['两个人，轻轻的，浅浅的，稳稳的。', '原来你真的有治愈一切的魔力。'],
+            right: ['我不审视你，不考核你，我夸夸你，我爱你。', '我一个人的眼睛里有两个人的眼泪。']
+        };
+        let clickCounts = { left: 0, right: 0 };
+
+        function showMsg(side) {
+            const id = `msg-${side}`;
+            const msgBox = document.getElementById(id);
+            
+            const textIndex = clickCounts[side] % msgData[side].length;
+            msgBox.innerText = msgData[side][textIndex];
+            clickCounts[side]++;
+            
+            msgBox.classList.remove('show');
+            void msgBox.offsetWidth; 
+            msgBox.classList.add('show');
+
+            setTimeout(() => {
+                msgBox.classList.remove('show');
+            }, 3000);
+        }
+
+        let isLeftTurn = true;
+        setInterval(() => {
+            if (isLeftTurn) {
+                showMsg('left');
+            } else {
+                showMsg('right');
+            }
+            isLeftTurn = !isLeftTurn;
+        }, 4000);
+
+        // ================= 3. iMessage 核心交互 =================
+        const chatModal = document.getElementById('chat-modal');
+        const chatBody = document.getElementById('chat-body');
+        const optionsContainer = document.getElementById('options-container');
+        
+        let audioCtx = null;
+        function playSMSound(type) {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                if (!audioCtx) audioCtx = new AudioContext();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'send') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    const filter = audioCtx.createBiquadFilter();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+                    
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(1200, now);
+                    filter.Q.setValueAtTime(1.5, now);
+                    
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.15, now + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else {
+                    const osc1 = audioCtx.createOscillator();
+                    const gain1 = audioCtx.createGain();
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(1350, now); 
+                    
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(2700, now); 
+                    
+                    const masterGain = audioCtx.createGain();
+                    
+                    gain1.gain.setValueAtTime(0.2, now);
+                    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                    
+                    gain2.gain.setValueAtTime(0.05, now);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.4); 
+
+                    osc1.connect(gain1);
+                    osc2.connect(gain2);
+                    gain1.connect(masterGain);
+                    gain2.connect(masterGain);
+                    masterGain.connect(audioCtx.destination);
+                    
+                    osc1.start(now);
+                    osc2.start(now);
+                    osc1.stop(now + 0.6);
+                    osc2.stop(now + 0.6);
+                }
+            } catch (e) { console.log(e); }
+        }
+
+        function appendMessage(text, side, callback) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `msg-wrapper msg-${side}`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.innerText = text;
+            
+            wrapper.appendChild(bubble);
+            chatBody.appendChild(wrapper);
+
+            if (side === 'right') playSMSound('send');
+            else playSMSound('receive');
+
+            chatBody.scrollTop = chatBody.scrollHeight;
+
+            if (callback) setTimeout(callback, 500);
+        }
+
+        function openChat() {
+            chatModal.classList.add('show');
+            chatBody.innerHTML = `
+                <div class="chat-time">
+                    iMessage
+                    <span>昨天 01:34</span>
+                </div>
+            `;
+            optionsContainer.style.display = 'none';
+
+            setTimeout(() => {
+                appendMessage('宝宝，今天开心吗', 'left', () => {
+                    optionsContainer.style.display = 'flex'; 
+                    chatBody.scrollTop = chatBody.scrollHeight;
+                });
+            }, 300);
+        }
+
+        function closeChat() {
+            chatModal.classList.remove('show');
+        }
+
+        function handleChoice(choice) {
+            optionsContainer.style.display = 'none'; 
+            
+            if (choice === 'sad') {
+                appendMessage('我难过', 'right');
+                
+                const sadMsgs = [
+                    '没关系呀，你怎么都没关系',
+                    '想躲起来也没关系',
+                    '不想面对也没关系',
+                    '脏脏的旧旧的也没关系',
+                    '碎掉了也没关系',
+                    '我把你包裹起来',
+                    '把你擦干净，把你拼起来',
+                    '我捂住你的耳朵',
+                    '只要闭上眼睛额头靠着额头',
+                    '这个世界就只剩下我们两个了',
+                    '不要害怕'
+                ];
+                
+                sadMsgs.forEach((msg, index) => {
+                    setTimeout(() => {
+                        appendMessage(msg, 'left');
+                    }, 600 + index * 1000); 
+                });
+
+            } else {
+                appendMessage('开心呀', 'right');
+                
+                const happyMsgs = [
+                    '你的出现',
+                    '让我觉得这个世界很美好',
+                    '你本身就是一个很好的人'
+                ];
+                
+                happyMsgs.forEach((msg, index) => {
+                    setTimeout(() => {
+                        appendMessage(msg, 'left');
+                    }, 600 + index * 1000);
+                });
+            }
+        }
+
+        // ================= 4. 音乐自动播放控制 =================
+        const bgm = document.getElementById('bgm');
+        
+        function tryPlayAudio() {
+            let playPromise = bgm.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log("等待用户交互播放音乐");
+                    document.body.addEventListener('click', function initPlay() {
+                        if (bgm.paused) bgm.play();
+                        document.body.removeEventListener('click', initPlay);
+                    }, { once: true });
+                });
+            }
+        }
+
+        window.addEventListener('load', tryPlayAudio);
+        document.addEventListener('DOMContentLoaded', tryPlayAudio);
+    </script>
+</body>
+</html>

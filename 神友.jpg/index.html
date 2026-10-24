@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>你好，笗白</title>
+    <style>
+        /* 基础重置 */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html {
+            width: 100%; height: 100%; overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #000;
+            color: #fff;
+            user-select: none;
+        }
+
+        /* ================= 全局模糊渐近过渡效果 ================= */
+        .page-exit-overlay {
+            position: fixed; inset: 0;
+            background: #000;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            backdrop-filter: blur(0px);
+            -webkit-backdrop-filter: blur(0px);
+            transition: opacity 0.8s ease, backdrop-filter 0.8s ease;
+        }
+        .page-exit-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        /* ================= 雪花特效层 ================= */
+        .snow-container {
+            position: absolute; inset: 0;
+            z-index: 1;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        
+        /* 核心雪花形状 */
+        .snowflake-complex {
+            position: absolute;
+            top: -10vh;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"><line x1="50" y1="5" x2="50" y2="95"/><line x1="11" y1="27.5" x2="89" y2="72.5"/><line x1="89" y1="27.5" x2="11" y2="72.5"/><line x1="50" y1="25" x2="35" y2="10"/><line x1="50" y1="25" x2="65" y2="10"/><line x1="50" y1="75" x2="35" y2="90"/><line x1="50" y1="75" x2="65" y2="90"/><line x1="27.5" y1="40" x2="15" y2="35"/><line x1="72.5" y1="60" x2="85" y2="65"/><line x1="72.5" y1="40" x2="85" y2="35"/><line x1="27.5" y1="60" x2="15" y2="65"/></g></svg>');
+            background-size: contain;
+            background-repeat: no-repeat;
+            will-change: transform, opacity;
+            animation-name: fall;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+
+        /* 陪衬圆形雪花粒子 */
+        .snowflake-dot {
+            position: absolute;
+            top: -10vh;
+            background-color: #fff;
+            border-radius: 50%;
+            will-change: transform, opacity;
+            animation-name: fallDot;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+
+        @keyframes fall {
+            0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 0; }
+            10% { opacity: var(--target-opacity); }
+            90% { opacity: var(--target-opacity); }
+            100% { transform: translate3d(20vw, 110vh, 0) rotate(360deg); opacity: 0; }
+        }
+
+        @keyframes fallDot {
+            0% { transform: translate3d(0, -10vh, 0); opacity: 0; }
+            10% { opacity: var(--target-opacity); }
+            90% { opacity: var(--target-opacity); }
+            100% { transform: translate3d(10vw, 110vh, 0); opacity: 0; }
+        }
+
+        /* ================= 主体内容布局 ================= */
+        .main-content {
+            position: relative;
+            z-index: 10;
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding-bottom: 10vh;
+        }
+
+        /* 头像容器 */
+        .avatar-section {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        /* 日出光晕效果 */
+        .sun-glow {
+            position: absolute;
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 160px; height: 160px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 70%);
+            border-radius: 50%;
+            opacity: 0;
+            z-index: -1;
+            /* 光晕动画 */
+            animation: glowRise 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        /* 头像图片 (日出+模糊进入) */
+        .avatar {
+            width: 120px; height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            /* 初始状态 */
+            opacity: 0;
+            transform: translateY(40px) scale(0.9);
+            filter: blur(20px);
+            box-shadow: 0 0 0px rgba(255, 255, 255, 0);
+            /* 动画 */
+            animation: sunRise 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        @keyframes sunRise {
+            0% {
+                opacity: 0;
+                transform: translateY(40px) scale(0.9);
+                filter: blur(20px);
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+            }
+            60% {
+                opacity: 1;
+                filter: blur(2px);
+                /* 模拟日出瞬间的光亮 */
+                box-shadow: 0 0 40px rgba(255, 255, 255, 0.6), 0 10px 20px rgba(0,0,0,0.8); 
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+                box-shadow: 0 0 25px rgba(255, 255, 255, 0.2), 0 10px 20px rgba(0,0,0,0.8);
+            }
+        }
+
+        @keyframes glowRise {
+            0% { opacity: 0; transform: translateX(-50%) scale(0.5) translateY(40px); }
+            60% { opacity: 1; transform: translateX(-50%) scale(1.2) translateY(0); }
+            100% { opacity: 0.4; transform: translateX(-50%) scale(1.5) translateY(0); }
+        }
+
+        /* 发光白线 */
+        .glow-line {
+            margin-top: 25px;
+            width: 140px;
+            height: 1.5px;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.5);
+            transform: scaleX(0);
+            transform-origin: center;
+            /* 白线延迟 0.8s 展开，等头像升起一部分 */
+            animation: expandLine 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            animation-delay: 0.8s;
+        }
+
+        @keyframes expandLine {
+            0% { transform: scaleX(0); opacity: 0; }
+            100% { transform: scaleX(1); opacity: 1; }
+        }
+
+        /* 文字区域 */
+        .text-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0;
+            animation: fadeIn 1.5s ease forwards;
+            animation-delay: 1.5s; /* 等头像和白线快到位再显字 */
+        }
+
+        .title-cn {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 5px;
+            text-shadow: 0 0 15px rgba(255,255,255,0.6);
+            margin-bottom: 5px;
+            margin-left: 5px;
+        }
+
+        /* 英文名改为渐显 */
+        .title-en {
+            font-size: 12px;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 3px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            opacity: 0;
+            animation: simpleFadeIn 1s ease forwards;
+            animation-delay: 1.8s;
+        }
+
+        @keyframes simpleFadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 冬日文案 (自上向下展开渐显) */
+        .winter-text {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            letter-spacing: 2px;
+            margin-bottom: 50px;
+            clip-path: inset(0 0 100% 0);
+            opacity: 0;
+            animation: revealText 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            animation-delay: 2s;
+        }
+
+        @keyframes revealText {
+            0% { clip-path: inset(0 0 100% 0); opacity: 0; }
+            100% { clip-path: inset(0 0 0 0); opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        /* 玻璃质感交互按钮 */
+        .glass-btn {
+            padding: 12px 40px;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3), inset 0 0 10px rgba(255,255,255,0.05);
+            opacity: 0;
+            animation: simpleFadeIn 1s ease forwards;
+            animation-delay: 2.6s; /* 最后出现 */
+        }
+
+        .glass-btn:hover, .glass-btn:active {
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 25px rgba(255,255,255,0.2), inset 0 0 15px rgba(255,255,255,0.1);
+            transform: scale(1.02);
+        }
+
+        @media (max-width: 768px) {
+            .avatar { width: 100px; height: 100px; }
+            .glow-line { width: 115px; margin-top: 20px; }
+            .title-cn { font-size: 24px; }
+            .title-en { font-size: 10px; margin-bottom: 25px; }
+            .winter-text { font-size: 13px; margin-bottom: 40px; letter-spacing: 1px; }
+            .glass-btn { padding: 10px 30px; font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 雪花层 -->
+    <div class="snow-container" id="snow-container"></div>
+
+    <!-- 模糊跳转遮罩层 -->
+    <div class="page-exit-overlay" id="exit-overlay"></div>
+
+    <!-- 主体内容 -->
+    <div class="main-content">
+        
+        <div class="avatar-section">
+            <!-- 日出光晕 -->
+            <div class="sun-glow"></div>
+            <img src="开场头像.jpg" alt="Avatar" class="avatar">
+            <div class="glow-line"></div>
+        </div>
+
+        <div class="text-section">
+            <div class="title-cn">笗白</div>
+            <div class="title-en">DONG BAI</div>
+            
+            <div class="winter-text">能不能借着冬天的名义 再靠近你一些</div>
+            
+            <button class="glass-btn" onclick="goToPlayer()">了解我</button>
+        </div>
+
+    </div>
+
+    <script>
+        // ================= 雪花生成逻辑 =================
+        function createSnow() {
+            const container = document.getElementById('snow-container');
+            const isMobile = window.innerWidth <= 768;
+            
+            const complexCount = isMobile ? 20 : 35;
+            const dotCount = isMobile ? 40 : 60;
+
+            for (let i = 0; i < complexCount; i++) {
+                const snow = document.createElement('div');
+                snow.classList.add('snowflake-complex');
+                const size = Math.random() * 18 + 10;
+                snow.style.width = `${size}px`;
+                snow.style.height = `${size}px`;
+                snow.style.left = `${Math.random() * 100}vw`;
+                const duration = Math.random() * 15 + 15;
+                snow.style.animationDuration = `${duration}s`;
+                snow.style.animationDelay = `-${Math.random() * 30}s`;
+                const baseOpacity = Math.random() * 0.5 + 0.3; 
+                snow.style.setProperty('--target-opacity', baseOpacity);
+                if (size < 15 || Math.random() > 0.7) {
+                    snow.style.filter = `blur(${Math.random() * 1.5 + 0.5}px)`; 
+                }
+                container.appendChild(snow);
+            }
+
+            for (let i = 0; i < dotCount; i++) {
+                const dot = document.createElement('div');
+                dot.classList.add('snowflake-dot');
+                const size = Math.random() * 3 + 2;
+                dot.style.width = `${size}px`;
+                dot.style.height = `${size}px`;
+                dot.style.left = `${Math.random() * 100}vw`;
+                const duration = Math.random() * 10 + 10;
+                dot.style.animationDuration = `${duration}s`;
+                dot.style.animationDelay = `-${Math.random() * 20}s`;
+                const baseOpacity = Math.random() * 0.6 + 0.2;
+                dot.style.setProperty('--target-opacity', baseOpacity);
+                if (Math.random() > 0.5) {
+                    dot.style.filter = `blur(${Math.random() + 0.5}px)`;
+                }
+                container.appendChild(dot);
+            }
+        }
+
+        createSnow();
+
+        // ================= 页面跳转动画 =================
+        function goToPlayer() {
+            const overlay = document.getElementById('exit-overlay');
+            overlay.classList.add('active');
+            setTimeout(() => {
+                window.location.href = '播放器.html';
+            }, 800);
+        }
+    </script>
+</body>
+</html>
